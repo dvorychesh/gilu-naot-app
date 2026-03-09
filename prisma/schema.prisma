@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SchoolTrack {
+  ELEMENTARY
+  HIGH_SCHOOL
+}
+
+enum InterviewStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  school    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interviewSessions InterviewSession[]
+  classProfiles     ClassProfile[]
+}
+
+model InterviewSession {
+  id                   String          @id @default(cuid())
+  userId               String
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentName          String
+  grade                String?
+  track                SchoolTrack
+  status               InterviewStatus @default(IN_PROGRESS)
+  currentQuestionIndex Int             @default(0)
+  isAwaitingFollowUp   Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  answers InterviewAnswer[]
+  profile StudentProfile?
+
+  @@index([userId, status])
+}
+
+model InterviewAnswer {
+  id            String           @id @default(cuid())
+  sessionId     String
+  session       InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionIndex Int
+  questionText  String
+  isFollowUp    Boolean          @default(false)
+  followUpText  String?
+  teacherAnswer String           @db.Text
+  qualityPassed Boolean
+  createdAt     DateTime         @default(now())
+
+  @@index([sessionId, questionIndex])
+}
+
+model StudentProfile {
+  id                  String           @id @default(cuid())
+  sessionId           String           @unique
+  session             InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentName         String
+  track               SchoolTrack
+  bottomLine          String           @db.Text
+  pedagogicalAnalysis String           @db.Text
+  actionPlan          String           @db.Text
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model ClassProfile {
+  id                 String      @id @default(cuid())
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  className          String
+  school             String?
+  track              SchoolTrack
+  academicYear       String?
+  classDescription   String      @db.Text
+  classAnalysis      String      @db.Text
+  groupInterventions String      @db.Text
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([userId])
+}

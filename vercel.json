@@ -1,0 +1,15 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install",
+  "functions": {
+    "src/app/api/interview/[sessionId]/answer/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/interview/[sessionId]/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/class-profile/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
