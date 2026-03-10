@@ -65,15 +65,37 @@ model InterviewAnswer {
   @@index([sessionId, questionIndex])
 }
 
+enum ProfileStatus {
+  PENDING
+  ANALYZING
+  COMPLETED
+  ERROR
+}
+
 model StudentProfile {
   id                  String           @id @default(cuid())
   sessionId           String           @unique
   session             InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   studentName         String
+  grade               String?
   track               SchoolTrack
-  bottomLine          String           @db.Text
-  pedagogicalAnalysis String           @db.Text
-  actionPlan          String           @db.Text
+  status              ProfileStatus    @default(PENDING)
+
+  // Gem Analysis Components
+  headline            String?          @db.Text         // תמונת על
+  strengths           String?          @db.Text         // מנועי כוח
+  barriers            String?          @db.Text         // חסמים ואתגרים
+  deepReading         String?          @db.Text         // קריאה בין השורות
+  interventions       String?          @db.Text         // תוכנית התערבות
+  trackingSignsSuccess String?         @db.Text         // סימני הצלחה
+  trackingSignsWarning String?         @db.Text         // נורות אזהרה
+  closingInsight      String?          @db.Text         // משפט מסכם
+
+  // Legacy fields (kept for backward compatibility)
+  bottomLine          String?          @db.Text
+  pedagogicalAnalysis String?          @db.Text
+  actionPlan          String?          @db.Text
+
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 }
