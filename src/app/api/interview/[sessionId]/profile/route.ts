@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUserId } from '@/lib/auth'
+import { getAuthUserId, DEV_MODE } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const clerkId = await getAuthUserId()
+  let clerkId = await getAuthUserId()
+  const allowUnauthenticated = DEV_MODE || process.env.IMPORT_ALLOW_UNAUTHENTICATED === 'true'
 
-  if (!clerkId) {
+  if (!clerkId && !allowUnauthenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -25,9 +26,14 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const currentUser = await prisma.user.findUnique({ where: { clerkId } })
-    if (!currentUser || session.userId !== currentUser.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const finalClerkId = clerkId || 'dev-user-001'
+
+    // Skip ownership check in dev/unauthenticated mode
+    if (clerkId) {
+      const currentUser = await prisma.user.findUnique({ where: { clerkId } })
+      if (!currentUser || session.userId !== currentUser.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Get or create profile
