@@ -117,7 +117,6 @@ export function parseCSV(csvText: string): ParseResult {
       }
     })
 
-    const hasAnswers = Object.keys(questionIndices).length >= 5 // At least 5 questions present
     const valid: StudentRow[] = []
     const errors: Array<{ row: number; error: string }> = []
 
@@ -146,16 +145,14 @@ export function parseCSV(csvText: string): ParseResult {
         }
       }
 
-      // Extract answers if available
+      // Extract answers if any question columns are present
       const answers: Record<number, string> = {}
-      if (hasAnswers) {
-        Object.entries(questionIndices).forEach(([qIdx, colIdx]) => {
-          const answer = cells[colIdx]?.trim()
-          if (answer) {
-            answers[parseInt(qIdx)] = answer
-          }
-        })
-      }
+      Object.entries(questionIndices).forEach(([qIdx, colIdx]) => {
+        const answer = cells[colIdx]?.trim()
+        if (answer) {
+          answers[parseInt(qIdx)] = answer
+        }
+      })
 
       valid.push({
         studentName,

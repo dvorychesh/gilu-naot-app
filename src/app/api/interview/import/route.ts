@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
     for (const row of valid) {
       try {
         const hasAnswers = row.answers && Object.keys(row.answers).length > 0
-        const sessionStatus = hasAnswers ? 'COMPLETED' : 'IN_PROGRESS'
+        // Always set status to COMPLETED for import - analysis works even with student name alone
+        const sessionStatus = 'COMPLETED'
 
         console.log('[IMPORT] Creating session for:', row.studentName, { hasAnswers, sessionStatus })
         const session = await prisma.interviewSession.create({
