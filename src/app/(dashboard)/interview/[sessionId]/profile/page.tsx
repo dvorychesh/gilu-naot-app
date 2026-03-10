@@ -45,14 +45,39 @@ export default function ProfilePage() {
       const data = await res.json()
       setProfile(data)
 
-      // If status is PENDING, trigger analysis
+      // If status is PENDING or ANALYZING, trigger/fetch analysis
       if (data.status === 'PENDING') {
         triggerAnalysis()
+      } else if (data.status === 'ANALYZING') {
+        fetchAndUpdateAnalysis()
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAndUpdateAnalysis = async () => {
+    setAnalyzing(true)
+    try {
+      const res = await fetch(`/api/interview/${sessionId}/generate`, {
+        headers: { 'X-Internal-Call': 'true' }
+      })
+
+      if (!res.ok) throw new Error('Failed to fetch analysis')
+
+      // Fetch updated profile
+      const profileRes = await fetch(`/api/interview/${sessionId}/profile`)
+      if (!profileRes.ok) throw new Error('Failed to load updated profile')
+
+      const updatedProfile = await profileRes.json()
+      setProfile(updatedProfile)
+    } catch (err) {
+      console.error('Analysis fetch error:', err)
+      // Don't set error state, just stop analyzing
+    } finally {
+      setAnalyzing(false)
     }
   }
 
