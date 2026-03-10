@@ -1,40 +1,40 @@
-import { Webhook } from 'svix'
-import { headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { Webhook } from 'svix'
 import { prisma } from '@/lib/db'
 
+type ClerkUserPayload = {
+  type: string
+  data: {
+    id: string
+    email_addresses: Array<{ email_address: string }>
+    first_name?: string
+    last_name?: string
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
-  if (!WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'No webhook secret' }, { status: 500 })
+  const secret = process.env.CLERK_WEBHOOK_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
   }
 
-  const headerPayload = await headers()
-  const svix_id = headerPayload.get('svix-id')
-  const svix_timestamp = headerPayload.get('svix-timestamp')
-  const svix_signature = headerPayload.get('svix-signature')
-
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 })
+  const body = await req.text()
+  const headers = {
+    'svix-id': req.headers.get('svix-id') ?? '',
+    'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
+    'svix-signature': req.headers.get('svix-signature') ?? '',
   }
 
-  const payload = await req.json()
-  const body = JSON.stringify(payload)
-
-  let evt: { type: string; data: { id: string; email_addresses: Array<{ email_address: string }>; first_name?: string; last_name?: string } }
+  let payload: ClerkUserPayload
   try {
-    const wh = new Webhook(WEBHOOK_SECRET)
-    evt = wh.verify(body, {
-      'svix-id': svix_id,
-      'svix-timestamp': svix_timestamp,
-      'svix-signature': svix_signature,
-    }) as typeof evt
+    const wh = new Webhook(secret)
+    payload = wh.verify(body, headers) as ClerkUserPayload
   } catch {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
-  if (evt.type === 'user.created') {
-    const { id, email_addresses, first_name, last_name } = evt.data
+  if (payload.type === 'user.created') {
+    const { id, email_addresses, first_name, last_name } = payload.data
     const email = email_addresses[0]?.email_address
     if (email) {
       await prisma.user.upsert({

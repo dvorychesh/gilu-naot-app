@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getAuthUserId } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import Link from 'next/link'
 import { BookOpen, Users, Clock, ArrowLeft } from 'lucide-react'
@@ -7,10 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 
 export default async function DashboardPage() {
-  const { userId: clerkId } = await auth()
+  const clerkId = await getAuthUserId()
 
-  const user = clerkId
-    ? await prisma.user.findUnique({
+  let recentSessions: any[] = []
+  let totalSessions = 0
+  let completedSessions = 0
+
+  if (clerkId) {
+    try {
+      const user = await prisma.user.findUnique({
         where: { clerkId },
         include: {
           interviewSessions: {
@@ -20,15 +25,17 @@ export default async function DashboardPage() {
           },
         },
       })
-    : null
-
-  const recentSessions = user?.interviewSessions || []
-  const totalSessions = user
-    ? await prisma.interviewSession.count({ where: { userId: user.id } })
-    : 0
-  const completedSessions = user
-    ? await prisma.interviewSession.count({ where: { userId: user.id, status: 'COMPLETED' } })
-    : 0
+      recentSessions = user?.interviewSessions || []
+      if (user) {
+        totalSessions = await prisma.interviewSession.count({ where: { userId: user.id } })
+        completedSessions = await prisma.interviewSession.count({
+          where: { userId: user.id, status: 'COMPLETED' },
+        })
+      }
+    } catch {
+      // DB not connected yet — show empty state
+    }
+  }
 
   return (
     <div className="p-8">
@@ -128,11 +135,13 @@ export default async function DashboardPage() {
                     >
                       {session.status === 'COMPLETED' ? 'הושלם' : 'בתהליך'}
                     </Badge>
-                    <Link href={
-                      session.status === 'COMPLETED' && session.profile
-                        ? `/interview/${session.id}/complete`
-                        : `/interview/${session.id}`
-                    }>
+                    <Link
+                      href={
+                        session.status === 'COMPLETED' && session.profile
+                          ? `/interview/${session.id}/complete`
+                          : `/interview/${session.id}`
+                      }
+                    >
                       <Button variant="outline" size="sm">
                         {session.status === 'COMPLETED' ? 'צפה בפרופיל' : 'המשך ראיון'}
                       </Button>

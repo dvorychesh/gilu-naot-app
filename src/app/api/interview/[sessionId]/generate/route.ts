@@ -1,13 +1,15 @@
-import { auth } from '@clerk/nextjs/server'
+import { getAuthUserId } from '@/lib/auth'
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { streamProfileGeneration } from '@/lib/claude'
+
+export const maxDuration = 60;
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const { userId: clerkId } = await auth()
+  const clerkId = await getAuthUserId()
   if (!clerkId) return new Response('Unauthorized', { status: 401 })
 
   const { sessionId } = await params
@@ -71,12 +73,15 @@ export async function POST(
             track: session.track,
             bottomLine: bottomLineMatch?.[1]?.trim() || fullText.slice(0, 200),
             pedagogicalAnalysis: analysisMatch?.[1]?.trim() || '',
-            actionPlan: (actionMatch?.[1]?.trim() || '') + (kpiMatch ? '\n\n## ⏰ מדדי הצלחה\n' + kpiMatch[1].trim() : ''),
+            actionPlan:
+              (actionMatch?.[1]?.trim() || '') +
+              (kpiMatch ? '\n\n## ⏰ מדדי הצלחה\n' + kpiMatch[1].trim() : ''),
           },
         })
       } catch (err) {
-        console.error('Generate profile error:', err)
-        controller.enqueue(encoder.encode('\n\nשגיאה ביצירת הפרופיל. אנא נסו שוב.'))
+        const isDev = process.env.NODE_ENV === 'development'
+        if (isDev) console.error('Generate profile error:', err)
+        controller.enqueue(encoder.encode('\n\n❌ שגיאה בעיבוד הפרופיל. אנא נסו שוב מאוחר יותר.'))
       } finally {
         controller.close()
       }

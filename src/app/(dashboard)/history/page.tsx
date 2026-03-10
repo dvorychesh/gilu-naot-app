@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getAuthUserId } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -7,19 +7,24 @@ import { Badge } from '@/components/ui/badge'
 import { BookOpen } from 'lucide-react'
 
 export default async function HistoryPage() {
-  const { userId: clerkId } = await auth()
+  const clerkId = await getAuthUserId()
 
-  const user = clerkId
-    ? await prisma.user.findUnique({ where: { clerkId } })
-    : null
+  let sessions: any[] = []
 
-  const sessions = user
-    ? await prisma.interviewSession.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'desc' },
-        include: { profile: { select: { id: true } } },
-      })
-    : []
+  if (clerkId) {
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } })
+      if (user) {
+        sessions = await prisma.interviewSession.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          include: { profile: { select: { id: true } } },
+        })
+      }
+    } catch {
+      // DB not connected yet
+    }
+  }
 
   return (
     <div className="p-8">

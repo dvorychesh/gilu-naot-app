@@ -1,6 +1,19 @@
-import { UserButton } from '@clerk/nextjs'
 import Link from 'next/link'
-import { BookOpen, Users, Home, Clock } from 'lucide-react'
+import { BookOpen, Users, Home, Clock, Upload } from 'lucide-react'
+import { DEV_MODE } from '@/lib/auth'
+
+// UserButton is only rendered when Clerk is configured
+async function AccountButton() {
+  if (DEV_MODE) {
+    return (
+      <div className="w-8 h-8 rounded-full bg-purple-400 flex items-center justify-center text-white text-sm font-bold">
+        פ
+      </div>
+    )
+  }
+  const { UserButton } = await import('@clerk/nextjs')
+  return <UserButton />
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -28,6 +41,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span>ראיון תלמיד חדש</span>
           </Link>
           <Link
+            href="/interview/import"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors text-purple-100 hover:text-white"
+          >
+            <Upload className="w-5 h-5" />
+            <span>יבוא תלמידים</span>
+          </Link>
+          <Link
             href="/class-profile/new"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors text-purple-100 hover:text-white"
           >
@@ -45,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="p-4 border-t border-purple-700">
           <div className="flex items-center gap-3">
-            <UserButton />
+            <AccountButton />
             <span className="text-purple-200 text-sm">הגדרות חשבון</span>
           </div>
         </div>

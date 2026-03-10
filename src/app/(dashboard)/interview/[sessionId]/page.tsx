@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getAuthUserId } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { QUESTIONS } from '@/lib/questions'
@@ -9,15 +9,20 @@ export default async function InterviewPage({
 }: {
   params: Promise<{ sessionId: string }>
 }) {
-  const { userId: clerkId } = await auth()
-  if (!clerkId) redirect('/sign-in')
+  const clerkId = await getAuthUserId()
+  if (!clerkId) redirect('/')
 
   const { sessionId } = await params
 
-  const session = await prisma.interviewSession.findFirst({
-    where: { id: sessionId, user: { clerkId } },
-    include: { answers: { orderBy: { createdAt: 'asc' } } },
-  })
+  let session: any = null
+  try {
+    session = await prisma.interviewSession.findFirst({
+      where: { id: sessionId, user: { clerkId } },
+      include: { answers: { orderBy: { createdAt: 'asc' } } },
+    })
+  } catch {
+    redirect('/')
+  }
 
   if (!session) redirect('/')
 

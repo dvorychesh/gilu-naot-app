@@ -1,9 +1,11 @@
-import { auth } from '@clerk/nextjs/server'
+import { getAuthUserId } from '@/lib/auth'
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { runQualityCheck } from '@/lib/claude'
 import { getNextTransition } from '@/lib/interview-state'
 import { QUESTIONS } from '@/lib/questions'
+
+export const maxDuration = 60;
 
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`
@@ -13,7 +15,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const { userId: clerkId } = await auth()
+  const clerkId = await getAuthUserId()
   if (!clerkId) return new Response('Unauthorized', { status: 401 })
 
   const { sessionId } = await params
@@ -46,7 +48,6 @@ export async function POST(
           isFollowUp: session.isAwaitingFollowUp,
         })
 
-        // Save this answer
         await prisma.interviewAnswer.create({
           data: {
             sessionId,
@@ -104,8 +105,7 @@ export async function POST(
             )
           )
         }
-      } catch (err) {
-        console.error('Answer route error:', err)
+      } catch {
         controller.enqueue(encoder.encode(sseEvent({ type: 'error', message: 'שגיאה בעיבוד התשובה' })))
       } finally {
         controller.close()

@@ -30,7 +30,7 @@ NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=AIza...
 NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
 ```
 
@@ -94,7 +94,7 @@ gilu-naot-app/
 │   │   ├── interview/            # InterviewChat
 │   │   └── profile/              # ProfileView + PDF
 │   ├── lib/
-│   │   ├── claude.ts             # AI prompts
+│   │   ├── claude.ts             # Gemini AI prompts
 │   │   ├── questions.ts          # 10 שאלות
 │   │   ├── interventions.ts      # בנקי התערבות
 │   │   └── interview-state.ts    # State machine

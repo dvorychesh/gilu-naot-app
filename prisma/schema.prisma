@@ -2,6 +2,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// DEV: provider = "sqlite" | PROD: "postgresql"
 datasource db {
   provider = "postgresql"
 }
