@@ -10,101 +10,130 @@ export interface ParseResult {
 }
 
 /**
- * Parse CSV line handling quoted fields with commas
+ * RFC 4180 CSV Parser - handles quoted fields with newlines and commas
  */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
+function parseCSV_RFC4180(csvText: string): string[][] {
+  const result: string[][] = []
+  let row: string[] = []
+  let field = ''
   let inQuotes = false
+  let i = 0
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    const nextChar = line[i + 1]
+  while (i < csvText.length) {
+    const char = csvText[i]
+    const nextChar = csvText[i + 1]
 
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
         // Escaped quote
-        current += '"'
-        i++
+        field += '"'
+        i += 2
       } else {
         // Toggle quote state
         inQuotes = !inQuotes
+        i++
       }
     } else if (char === ',' && !inQuotes) {
-      // Field separator
-      result.push(current.trim())
-      current = ''
+      // End of field
+      row.push(field.trim())
+      field = ''
+      i++
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      // End of row
+      if (field || row.length > 0) {
+        row.push(field.trim())
+        if (row.some((f) => f)) {
+          // Only add non-empty rows
+          result.push(row)
+        }
+        row = []
+        field = ''
+      }
+      i++
+      // Skip \r\n as one line ending
+      if (char === '\r' && nextChar === '\n') {
+        i++
+      }
     } else {
-      current += char
+      field += char
+      i++
     }
   }
 
-  // Add last field
-  result.push(current.trim())
+  // Add last field and row if exists
+  if (field || row.length > 0) {
+    row.push(field.trim())
+    if (row.some((f) => f)) {
+      result.push(row)
+    }
+  }
+
   return result
 }
 
 export function parseCSV(csvText: string): ParseResult {
-  const lines = csvText.trim().split('\n')
-  if (lines.length < 2) {
-    return { valid: [], errors: [{ row: 0, error: 'CSV must have at least header + 1 data row' }] }
-  }
+  try {
+    const rows = parseCSV_RFC4180(csvText)
 
-  const headerLine = lines[0]
-  const headers = parseCSVLine(headerLine)
-
-  // Find headers with flexible matching (ignore gender markers and extra whitespace)
-  const studentNameIdx = headers.findIndex((h) => h.includes('שם התלמיד'))
-  const gradeIdx = headers.findIndex((h) => h === 'כיתה')
-  const trackIdx = headers.findIndex((h) => h === 'מסלול')
-
-  if (studentNameIdx === -1) {
-    return {
-      valid: [],
-      errors: [{ row: 0, error: `Missing required column: "שם התלמיד". Found columns: ${headers.join(', ')}` }],
-    }
-  }
-
-  // If no track column, default to ELEMENTARY
-  const hasTrack = trackIdx !== -1
-
-  const valid: StudentRow[] = []
-  const errors: Array<{ row: number; error: string }> = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    const cells = parseCSVLine(line)
-
-    const studentName = cells[studentNameIdx]
-    const grade = gradeIdx !== -1 ? cells[gradeIdx] : undefined
-    const trackRaw = hasTrack ? cells[trackIdx]?.toLowerCase() : 'יסודי'
-
-    if (!studentName) {
-      errors.push({ row: i + 1, error: 'Student name cannot be empty' })
-      continue
+    if (rows.length < 2) {
+      return { valid: [], errors: [{ row: 0, error: 'CSV must have at least header + 1 data row' }] }
     }
 
-    let track: 'ELEMENTARY' | 'HIGH_SCHOOL' = 'ELEMENTARY' // Default to ELEMENTARY
+    const headers = rows[0]
 
-    if (hasTrack && trackRaw) {
-      if (trackRaw === 'יסודי') {
-        track = 'ELEMENTARY'
-      } else if (trackRaw === 'על-יסודי' || trackRaw === 'על יסודי') {
-        track = 'HIGH_SCHOOL'
-      } else {
-        errors.push({ row: i + 1, error: `Invalid track: "${trackRaw}". Use "יסודי" or "על-יסודי"` })
-        continue
+    // Find headers with flexible matching
+    const studentNameIdx = headers.findIndex((h) => h.includes('שם התלמיד'))
+    const gradeIdx = headers.findIndex((h) => h.includes('כיתה'))
+    const trackIdx = headers.findIndex((h) => h.includes('מסלול'))
+
+    if (studentNameIdx === -1) {
+      return {
+        valid: [],
+        errors: [{ row: 0, error: `Missing required column: "שם התלמיד". Found: ${headers.slice(0, 5).join(', ')}...` }],
       }
     }
 
-    valid.push({
-      studentName,
-      grade: grade || undefined,
-      track,
-    })
-  }
+    const hasTrack = trackIdx !== -1
+    const valid: StudentRow[] = []
+    const errors: Array<{ row: number; error: string }> = []
 
-  return { valid, errors }
+    for (let i = 1; i < rows.length; i++) {
+      const cells = rows[i]
+      const studentName = cells[studentNameIdx]?.trim()
+
+      if (!studentName) {
+        errors.push({ row: i + 1, error: 'Student name cannot be empty' })
+        continue
+      }
+
+      const grade = gradeIdx !== -1 ? cells[gradeIdx]?.trim() : undefined
+      const trackRaw = hasTrack ? cells[trackIdx]?.toLowerCase().trim() : 'יסודי'
+
+      let track: 'ELEMENTARY' | 'HIGH_SCHOOL' = 'ELEMENTARY'
+
+      if (hasTrack && trackRaw) {
+        if (trackRaw === 'יסודי') {
+          track = 'ELEMENTARY'
+        } else if (trackRaw === 'על-יסודי' || trackRaw === 'על יסודי') {
+          track = 'HIGH_SCHOOL'
+        } else {
+          errors.push({ row: i + 1, error: `Invalid track: "${trackRaw}". Use "יסודי" or "על-יסודי"` })
+          continue
+        }
+      }
+
+      valid.push({
+        studentName,
+        grade: grade || undefined,
+        track,
+      })
+    }
+
+    return { valid, errors }
+  } catch (err) {
+    return {
+      valid: [],
+      errors: [{ row: 0, error: `CSV parsing failed: ${err instanceof Error ? err.message : String(err)}` }],
+    }
+  }
 }
