@@ -67,10 +67,22 @@ export async function POST(req: NextRequest) {
             status: 'IN_PROGRESS',
           },
         })
+
+        // Create student profile and trigger analysis
+        await prisma.studentProfile.create({
+          data: {
+            sessionId: session.id,
+            studentName: session.studentName,
+            track: session.track,
+            status: 'PENDING',
+          },
+        })
+
         created.push({
           id: session.id,
           studentName: session.studentName,
           status: 'created',
+          profileUrl: `/interview/${session.id}/profile`,
         })
       } catch (err) {
         errors.push({
