@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUserId } from '@/lib/auth'
+import { getAuthUserId, DEV_MODE } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
-  const clerkId = await getAuthUserId()
+  let clerkId = await getAuthUserId()
+  const allowUnauthenticated = DEV_MODE || process.env.IMPORT_ALLOW_UNAUTHENTICATED === 'true'
 
-  if (!clerkId) {
+  if (!clerkId && !allowUnauthenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  clerkId = clerkId || 'dev-user-001'
 
   try {
     const { sessionId } = await req.json()
@@ -29,8 +32,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    if (session.userId !== (await prisma.user.findUnique({ where: { clerkId } }))?.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Skip ownership check in dev/unauthenticated mode
+    if (!allowUnauthenticated) {
+      const user = await prisma.user.findUnique({ where: { clerkId } })
+      if (!user || session.userId !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Update status to ANALYZING
