@@ -32,34 +32,43 @@ export function CSVUploader() {
         body: formData,
       })
 
-      const data = (await res.json()) as ImportResult
+      if (!res.ok) {
+        throw new Error(`Upload failed with status ${res.status}`)
+      }
+
+      const data = await res.json() as ImportResult
       setResult(data)
-      if (data.success) {
+      if (data && data.success) {
         setFile(null)
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
       setResult({
         success: false,
         message: 'Failed to upload file',
         created: [],
-        errors: [{ row: 0, error: err instanceof Error ? err.message : 'Unknown error' }],
+        errors: [{ row: 0, error: errorMsg }],
       })
     } finally {
       setLoading(false)
     }
   }
 
-  const sampleCSV = `שם התלמיד,כיתה,מסלול
+  const downloadSample = () => {
+    try {
+      const sampleCSV = `שם התלמיד,כיתה,מסלול
 דני כהן,ד׳2,יסודי
 שרה דדון,י׳א,על-יסודי
 אליהו לוי,,יסודי`
-
-  const downloadSample = () => {
-    const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = 'sample-students.csv'
-    link.click()
+      const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = 'sample-students.csv'
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch (err) {
+      console.error('Download failed:', err)
+    }
   }
 
   return (
