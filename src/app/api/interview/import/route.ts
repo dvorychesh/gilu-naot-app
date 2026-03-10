@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   const finalClerkId = clerkId || 'dev-user-001'
 
   try {
+    console.log('[IMPORT] Step 1: Getting formData...')
     const formData = await req.formData()
     const file = formData.get('file') as File
 
@@ -24,16 +25,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
+    console.log('[IMPORT] Step 2: File received:', { name: file.name, size: file.size, type: file.type })
+
     if (!file.size) {
       return NextResponse.json({ error: 'File is empty' }, { status: 400 })
     }
 
+    console.log('[IMPORT] Step 3: Reading file text...')
     const csvText = await file.text()
     if (!csvText?.trim()) {
       return NextResponse.json({ error: 'File content is empty' }, { status: 400 })
     }
 
+    console.log('[IMPORT] Step 4: Parsing CSV...')
     const { valid, errors } = parseCSV(csvText)
+    console.log('[IMPORT] Step 5: Parse result:', { validRows: valid.length, errors: errors.length })
 
     if (valid.length === 0) {
       return NextResponse.json(
@@ -47,12 +53,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    console.log('[IMPORT] Step 6: Finding or creating user...')
     let user = await prisma.user.findUnique({
       where: { clerkId: finalClerkId },
     })
 
     // Auto-create user if it doesn't exist
     if (!user) {
+      console.log('[IMPORT] Creating new user:', finalClerkId)
       try {
         user = await prisma.user.create({
           data: {
@@ -61,19 +69,24 @@ export async function POST(req: NextRequest) {
             name: 'Educator',
           },
         })
+        console.log('[IMPORT] User created:', user.id)
       } catch (err) {
+        console.log('[IMPORT] User creation error, retrying findUnique:', err instanceof Error ? err.message : String(err))
         // If user already exists (race condition), fetch it again
         user = await prisma.user.findUnique({
           where: { clerkId: finalClerkId },
         })
         if (!user) throw err
       }
+    } else {
+      console.log('[IMPORT] User found:', user.id)
     }
 
     const created = []
 
     for (const row of valid) {
       try {
+        console.log('[IMPORT] Creating session for:', row.studentName)
         const session = await prisma.interviewSession.create({
           data: {
             userId: user.id,
@@ -85,6 +98,7 @@ export async function POST(req: NextRequest) {
         })
 
         // Create student profile and trigger analysis
+        console.log('[IMPORT] Creating student profile for session:', session.id)
         await prisma.studentProfile.create({
           data: {
             sessionId: session.id,
@@ -93,6 +107,7 @@ export async function POST(req: NextRequest) {
             status: 'PENDING',
           },
         })
+        console.log('[IMPORT] Student profile created')
 
         created.push({
           id: session.id,
@@ -101,9 +116,11 @@ export async function POST(req: NextRequest) {
           profileUrl: `/interview/${session.id}/profile`,
         })
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        console.log('[IMPORT] Session creation error for', row.studentName, ':', errMsg)
         errors.push({
           row: -1,
-          error: `Failed to create session for ${row.studentName}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          error: `Failed to create session for ${row.studentName}: ${errMsg}`,
         })
       }
     }
