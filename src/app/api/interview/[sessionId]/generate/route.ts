@@ -65,12 +65,23 @@ export async function POST(
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        // If no answers, generate analysis based on student name alone
+        const answers = session.answers.length > 0
+          ? session.answers.map((a) => ({
+              questionText: a.questionText,
+              teacherAnswer: a.teacherAnswer,
+              isFollowUp: a.isFollowUp,
+            }))
+          : [
+              {
+                questionText: 'תיאור כללי',
+                teacherAnswer: `בצע ניתוח עמוק על התלמיד ${session.studentName} בהתבסס על ניסיון פדגוגי עמוק. ספק תוכנית התערבות מפורטת.`,
+                isFollowUp: false,
+              }
+            ]
+
         for await (const chunk of streamProfileGeneration({
-          answers: session.answers.map((a) => ({
-            questionText: a.questionText,
-            teacherAnswer: a.teacherAnswer,
-            isFollowUp: a.isFollowUp,
-          })),
+          answers,
           studentName: session.studentName,
           track: session.track,
         })) {
