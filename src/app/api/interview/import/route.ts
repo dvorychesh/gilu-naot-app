@@ -1,3 +1,4 @@
+// Vercel rebuild: 1773167667
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUserId, DEV_MODE } from '@/lib/auth'
 import { prisma } from '@/lib/db'
