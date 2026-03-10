@@ -6,12 +6,14 @@ import { parseCSV } from '@/lib/csv-parser'
 export async function POST(req: NextRequest) {
   let clerkId = await getAuthUserId()
 
-  // In production, require authentication
-  if (!clerkId && !DEV_MODE) {
+  // Allow unauthenticated access in DEV_MODE or when IMPORT_ALLOW_UNAUTHENTICATED is set
+  const allowUnauthenticated = DEV_MODE || process.env.IMPORT_ALLOW_UNAUTHENTICATED === 'true'
+
+  if (!clerkId && !allowUnauthenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // In development, use dev user as fallback
+  // Use dev user as fallback for unauthenticated requests
   const finalClerkId = clerkId || 'dev-user-001'
 
   try {
