@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUserId, DEV_MODE } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { parseCSV } from '@/lib/csv-parser'
+import { QUESTIONS } from '@/lib/questions'
 
 export async function POST(req: NextRequest) {
   let clerkId = await getAuthUserId()
@@ -86,18 +87,21 @@ export async function POST(req: NextRequest) {
 
     for (const row of valid) {
       try {
-        console.log('[IMPORT] Creating session for:', row.studentName)
+        const hasAnswers = row.answers && Object.keys(row.answers).length > 0
+        const sessionStatus = hasAnswers ? 'COMPLETED' : 'IN_PROGRESS'
+
+        console.log('[IMPORT] Creating session for:', row.studentName, { hasAnswers, sessionStatus })
         const session = await prisma.interviewSession.create({
           data: {
             userId: user.id,
             studentName: row.studentName,
             grade: row.grade || '',
             track: row.track,
-            status: 'IN_PROGRESS',
+            status: sessionStatus,
           },
         })
 
-        // Create student profile and trigger analysis
+        // Create student profile
         console.log('[IMPORT] Creating student profile for session:', session.id)
         await prisma.studentProfile.create({
           data: {
@@ -109,10 +113,60 @@ export async function POST(req: NextRequest) {
         })
         console.log('[IMPORT] Student profile created')
 
+        // If answers provided, create InterviewAnswer records
+        if (hasAnswers && row.answers) {
+          console.log('[IMPORT] Creating interview answers for session:', session.id)
+          for (const [qIdx, teacherAnswer] of Object.entries(row.answers)) {
+            const questionIndex = parseInt(qIdx)
+            const question = QUESTIONS.find((q) => q.index === questionIndex)
+            const questionText = question?.text || `Question ${questionIndex}`
+
+            await prisma.interviewAnswer.create({
+              data: {
+                sessionId: session.id,
+                questionIndex,
+                questionText,
+                teacherAnswer,
+                qualityPassed: true, // Pre-filled CSV answers are assumed valid
+              },
+            })
+          }
+          console.log('[IMPORT] Interview answers created:', Object.keys(row.answers).length)
+
+          // Trigger AI analysis via generate endpoint
+          console.log('[IMPORT] Triggering analysis for session:', session.id)
+          try {
+            const baseUrl = process.env.VERCEL_URL
+              ? `https://${process.env.VERCEL_URL}`
+              : 'http://localhost:3000'
+            const generateUrl = `${baseUrl}/api/interview/${session.id}/generate`
+            console.log('[IMPORT] Calling generate endpoint:', generateUrl)
+
+            const generateResponse = await fetch(generateUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Internal-Call': 'true',
+              },
+            })
+
+            if (!generateResponse.ok) {
+              const genError = await generateResponse.text()
+              console.warn('[IMPORT] Generate endpoint warning:', generateResponse.status, genError)
+              // Don't fail import if generate fails - it can be retried
+            } else {
+              console.log('[IMPORT] Analysis triggered successfully')
+            }
+          } catch (genErr) {
+            console.warn('[IMPORT] Failed to trigger analysis:', genErr instanceof Error ? genErr.message : String(genErr))
+            // Don't fail import if generate fails - it can be retried
+          }
+        }
+
         created.push({
           id: session.id,
           studentName: session.studentName,
-          status: 'created',
+          status: hasAnswers ? 'imported-with-answers' : 'created',
           profileUrl: `/interview/${session.id}/profile`,
         })
       } catch (err) {

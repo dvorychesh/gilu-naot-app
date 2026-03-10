@@ -2,6 +2,7 @@ export interface StudentRow {
   studentName: string
   grade?: string
   track: 'ELEMENTARY' | 'HIGH_SCHOOL'
+  answers?: Record<number, string> // Answers to interview questions (indices 1-9)
 }
 
 export interface ParseResult {
@@ -94,6 +95,29 @@ export function parseCSV(csvText: string): ParseResult {
     }
 
     const hasTrack = trackIdx !== -1
+
+    // Find question column indices by keywords
+    const questionKeywords = [
+      'חוזקות', // 1
+      'קוגניטיבי', // 2
+      'שפה', // 3
+      'חברתי', // 4
+      'תלמידאות', // 5
+      'אחריות', // 6
+      'מוטיבציה', // 7
+      'רקע', // 8
+      'הערות', // 9
+    ]
+
+    const questionIndices: Record<number, number> = {}
+    questionKeywords.forEach((keyword, idx) => {
+      const colIdx = headers.findIndex((h) => h.includes(keyword))
+      if (colIdx !== -1) {
+        questionIndices[idx + 1] = colIdx
+      }
+    })
+
+    const hasAnswers = Object.keys(questionIndices).length >= 5 // At least 5 questions present
     const valid: StudentRow[] = []
     const errors: Array<{ row: number; error: string }> = []
 
@@ -122,10 +146,22 @@ export function parseCSV(csvText: string): ParseResult {
         }
       }
 
+      // Extract answers if available
+      const answers: Record<number, string> = {}
+      if (hasAnswers) {
+        Object.entries(questionIndices).forEach(([qIdx, colIdx]) => {
+          const answer = cells[colIdx]?.trim()
+          if (answer) {
+            answers[parseInt(qIdx)] = answer
+          }
+        })
+      }
+
       valid.push({
         studentName,
         grade: grade || undefined,
         track,
+        ...(Object.keys(answers).length > 0 && { answers }),
       })
     }
 

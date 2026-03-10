@@ -29,12 +29,23 @@ export async function POST(
 
   // If profile already exists, return it as a stream
   if (session.profile) {
-    const profileText = [
-      '## 💎 השורה התחתונה\n' + session.profile.bottomLine,
-      session.profile.pedagogicalAnalysis,
-      session.profile.actionPlan,
-    ].join('\n\n---\n\n')
+    const parts: string[] = []
+    if (session.profile.headline || session.profile.bottomLine) {
+      parts.push('## 💎 השורה התחתונה\n' + (session.profile.headline || session.profile.bottomLine))
+    }
+    if (session.profile.strengths) parts.push('## 🔥 מוטיבציה וחוזקות\n' + session.profile.strengths)
+    if (session.profile.barriers) parts.push('## 🚧 האתגר המרכזי\n' + session.profile.barriers)
+    if (session.profile.deepReading) parts.push('## 🧠 סגנון למידה\n' + session.profile.deepReading)
+    if (session.profile.interventions) parts.push('## 🛠️ תוכנית התערבות\n' + session.profile.interventions)
+    if (session.profile.trackingSignsSuccess) parts.push('## ✅ סימני הצלחה\n' + session.profile.trackingSignsSuccess)
+    if (session.profile.trackingSignsWarning) parts.push('## ⚠️ נורות אזהרה\n' + session.profile.trackingSignsWarning)
+    if (session.profile.closingInsight) parts.push('## 🎯 משפט סיכום\n' + session.profile.closingInsight)
+    // Fallback to legacy fields if new fields are empty
+    if (!session.profile.interventions && session.profile.actionPlan) {
+      parts.push('## 🛠️ תוכנית התערבות\n' + session.profile.actionPlan)
+    }
 
+    const profileText = parts.join('\n\n---\n\n')
     const encoder = new TextEncoder()
     return new Response(encoder.encode(profileText), {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -60,22 +71,43 @@ export async function POST(
           controller.enqueue(encoder.encode(chunk))
         }
 
-        // Parse and save sections
-        const bottomLineMatch = fullText.match(/##\s*💎[^\n]*\n([\s\S]*?)(?=\n---|\n##|$)/)
-        const analysisMatch = fullText.match(/##\s*📊[^\n]*\n([\s\S]*?)(?=\n---\n\n##\s*🛠️|$)/)
-        const actionMatch = fullText.match(/##\s*🛠️[^\n]*\n([\s\S]*?)(?=\n---\n\n##\s*⏰|##\s*⏰|$)/)
-        const kpiMatch = fullText.match(/##\s*⏰[^\n]*\n([\s\S]*)$/)
+        // Parse and save sections with new detailed fields
+        const parseSection = (header: string, nextHeader?: string): string => {
+          const pattern = nextHeader
+            ? new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*?)(?=\\n---\\s*\\n##|##\\s*${nextHeader})`, 'i')
+            : new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*)$`, 'i')
+          const match = fullText.match(pattern)
+          return match?.[1]?.trim() || ''
+        }
+
+        const headline = parseSection('💎', '📊') || parseSection('💎')
+        const strengths = parseSection('🔥', '🚧') || parseSection('🔥')
+        const barriers = parseSection('🚧', '🧠') || parseSection('🚧')
+        const deepReading = parseSection('🧠', '🏠') || parseSection('🧠')
+        const interventions = parseSection('🛠️', '⏰') || parseSection('🛠️')
+        const kpis = parseSection('⏰', '🎯') || parseSection('⏰')
+        const closingInsight = parseSection('🎯')
+        const trackingSignsSuccess = parseSection('✅')
+        const trackingSignsWarning = parseSection('⚠️')
 
         await prisma.studentProfile.create({
           data: {
             sessionId,
             studentName: session.studentName,
             track: session.track,
-            bottomLine: bottomLineMatch?.[1]?.trim() || fullText.slice(0, 200),
-            pedagogicalAnalysis: analysisMatch?.[1]?.trim() || '',
-            actionPlan:
-              (actionMatch?.[1]?.trim() || '') +
-              (kpiMatch ? '\n\n## ⏰ מדדי הצלחה\n' + kpiMatch[1].trim() : ''),
+            // New fields
+            headline: headline || fullText.slice(0, 300),
+            strengths,
+            barriers,
+            deepReading,
+            interventions,
+            trackingSignsSuccess,
+            trackingSignsWarning,
+            closingInsight,
+            // Legacy fields for backward compatibility
+            bottomLine: headline || fullText.slice(0, 200),
+            pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
+            actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
           },
         })
       } catch (err) {
