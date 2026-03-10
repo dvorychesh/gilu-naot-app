@@ -54,16 +54,15 @@ export function CSVUploader() {
     }
   }
 
-  const downloadSample = () => {
+  const downloadTemplate = async () => {
     try {
-      const sampleCSV = `שם התלמיד,כיתה,מסלול
-דני כהן,ד׳2,יסודי
-שרה דדון,י׳א,על-יסודי
-אליהו לוי,,יסודי`
-      const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' })
+      const res = await fetch('/api/interview/template')
+      if (!res.ok) throw new Error('Failed to download template')
+
+      const blob = await res.blob()
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = 'sample-students.csv'
+      link.download = 'תבנית-גילוי-נאות.csv'
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (err) {
@@ -83,47 +82,49 @@ export function CSVUploader() {
         <CardContent className="space-y-6">
           {/* Format help */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3">פורמט ה-CSV:</h3>
+            <h3 className="font-semibold text-blue-900 mb-3">פורמט ה-CSV - שתי אפשרויות:</h3>
 
-            {/* Table example */}
-            <div className="overflow-x-auto mb-4">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr>
-                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">שם התלמיד</th>
-                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">כיתה</th>
-                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">מסלול</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">דני כהן</td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">ד׳2</td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">יסודי</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">שרה דדון</td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">י׳א</td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">על-יסודי</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">אליהו לוי</td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800"></td>
-                    <td className="border border-blue-200 px-3 py-2 text-blue-800">יסודי</td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* Option 1: Simple mode */}
+            <div className="mb-4 pb-4 border-b border-blue-300">
+              <h4 className="font-semibold text-blue-800 mb-2">1️⃣ מצב פשוט (שמות בלבד)</h4>
+              <p className="text-xs text-blue-700 mb-2">עבור ראיון ידני עם כל תלמיד:</p>
+              <div className="overflow-x-auto mb-3 text-xs">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border border-blue-300 bg-blue-100 px-2 py-1 text-right">שם התלמיד</th>
+                      <th className="border border-blue-300 bg-blue-100 px-2 py-1 text-right">כיתה</th>
+                      <th className="border border-blue-300 bg-blue-100 px-2 py-1 text-right">מסלול</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-blue-200 px-2 py-1">דני כהן</td>
+                      <td className="border border-blue-200 px-2 py-1">ד׳</td>
+                      <td className="border border-blue-200 px-2 py-1">יסודי</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-blue-700">
+                • שם התלמיד: חובה | כיתה: אופציונלי | מסלול: חובה ("יסודי" או "על-יסודי")
+              </p>
             </div>
 
-            <p className="text-xs text-blue-700 mb-3">
-              • <span className="font-semibold">שם התלמיד</span> - חובה<br/>
-              • <span className="font-semibold">כיתה</span> - אופציונלי<br/>
-              • <span className="font-semibold">מסלול</span> - חובה: "יסודי" או "על-יסודי"
-            </p>
-
-            <Button variant="outline" size="sm" className="mt-2" onClick={downloadSample}>
-              הורד דוגמה
-            </Button>
+            {/* Option 2: Rich mode */}
+            <div className="mb-4">
+              <h4 className="font-semibold text-blue-800 mb-2">2️⃣ מצב עשיר (עם תשובות מלאות)</h4>
+              <p className="text-xs text-blue-700 mb-2">עבור ניתוח AI מיידי עם תוכנית התערבות:</p>
+              <p className="text-xs text-blue-700 mb-3 bg-blue-100 p-2 rounded">
+                ⭐ <strong>הסבר:</strong> כלול עמודות עבור 9 השאלות (חוזקות, קוגניטיבי, שפה, חברתי, תלמידאות, אחריות, מוטיבציה, רקע, הערות) והוסף תשובות לכל שדה. המערכת תחזיר פרופיל מפורט עם תוכנית התערבות ספציפית לכל תלמיד.
+              </p>
+              <Button variant="outline" size="sm" className="mb-3" onClick={downloadTemplate}>
+                📥 הורד תבנית דוגמה עם הכל כולל
+              </Button>
+              <p className="text-xs text-blue-600">
+                התבנית מכילה דוגמה מלאה עם 2 תלמידים וכל 9 השאלות + תשובות דוגמה
+              </p>
+            </div>
           </div>
 
           {/* File input */}
