@@ -13,6 +13,8 @@ export async function POST(
   const clerkId = await getAuthUserId()
   const isInternalCall = req.headers.get('X-Internal-Call') === 'true'
 
+  console.log('[GENERATE] Step 1: Auth check', { sessionId, hasClerkId: !!clerkId, isInternalCall })
+
   // Allow internal calls from import route or authenticated calls
   if (!clerkId && !isInternalCall) {
     return new Response('Unauthorized', { status: 401 })
@@ -29,6 +31,8 @@ export async function POST(
     },
   })
 
+  console.log('[GENERATE] Step 2: Session found', { sessionId, hasSession: !!session, status: session?.status })
+
   if (!session) return new Response('Not found', { status: 404 })
   if (session.status !== 'COMPLETED') {
     return new Response('Interview not completed', { status: 400 })
@@ -36,6 +40,7 @@ export async function POST(
 
   // If profile already exists, return it as a stream
   if (session.profile) {
+    console.log('[GENERATE] Step 3: Profile exists, returning cached')
     const parts: string[] = []
     if (session.profile.headline || session.profile.bottomLine) {
       parts.push('## 💎 השורה התחתונה\n' + (session.profile.headline || session.profile.bottomLine))
@@ -59,12 +64,15 @@ export async function POST(
     })
   }
 
+  console.log('[GENERATE] Step 4: Generating new profile', { studentName: session.studentName, answers: session.answers.length })
+
   const encoder = new TextEncoder()
   let fullText = ''
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        console.log('[GENERATE] Stream start: preparing data')
         // If no answers, generate analysis based on student name alone
         const answers = session.answers.length > 0
           ? session.answers.map((a) => ({
@@ -80,14 +88,20 @@ export async function POST(
               }
             ]
 
+        console.log('[GENERATE] Calling streamProfileGeneration', { answersCount: answers.length })
+
+        let chunkCount = 0
         for await (const chunk of streamProfileGeneration({
           answers,
           studentName: session.studentName,
           track: session.track,
         })) {
+          console.log(`[GENERATE] Chunk ${++chunkCount}: ${chunk.length} chars`)
           fullText += chunk
           controller.enqueue(encoder.encode(chunk))
         }
+
+        console.log('[GENERATE] Stream complete, parsing sections')
 
         // Parse and save sections with new detailed fields
         const parseSection = (header: string, nextHeader?: string): string => {
@@ -107,6 +121,8 @@ export async function POST(
         const closingInsight = parseSection('🎯')
         const trackingSignsSuccess = parseSection('✅')
         const trackingSignsWarning = parseSection('⚠️')
+
+        console.log('[GENERATE] Saving to database')
 
         // Update existing profile or create new one
         await prisma.studentProfile.upsert({
@@ -147,9 +163,9 @@ export async function POST(
             actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
           },
         })
+        console.log('[GENERATE] Profile saved, stream done')
       } catch (err) {
-        const isDev = process.env.NODE_ENV === 'development'
-        if (isDev) console.error('Generate profile error:', err)
+        console.error('[GENERATE] Error in stream:', err)
         controller.enqueue(encoder.encode('\n\n❌ שגיאה בעיבוד הפרופיל. אנא נסו שוב מאוחר יותר.'))
       } finally {
         controller.close()

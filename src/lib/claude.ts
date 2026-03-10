@@ -147,6 +147,8 @@ export async function* streamProfileGeneration({
   studentName: string
   track: SchoolTrack
 }): AsyncGenerator<string> {
+  console.log('[STREAM] Starting profile generation', { studentName, answerCount: answers.length })
+
   const interventionBank = getInterventionBank(track)
 
   const answersText = answers
@@ -154,24 +156,38 @@ export async function* streamProfileGeneration({
     .map((a, i) => `**${i + 1}. שאלה:** ${a.questionText}\n**תשובה:** ${a.teacherAnswer}`)
     .join('\n\n')
 
-  const stream = await getAI().models.generateContentStream({
-    model: MODEL,
-    config: { systemInstruction: buildAnalyzerSystemPrompt(track), maxOutputTokens: 2048 },
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `שם התלמיד/ה: ${studentName}\n\nתשובות המורה/ת:\n${answersText}\n\n---\n\n${interventionBank}`,
-          },
-        ],
-      },
-    ],
-  })
+  console.log('[STREAM] Calling Gemini API', { model: MODEL, answersText: answersText.length })
 
-  for await (const chunk of stream) {
-    const text = chunk.text
-    if (text) yield text
+  try {
+    const stream = await getAI().models.generateContentStream({
+      model: MODEL,
+      config: { systemInstruction: buildAnalyzerSystemPrompt(track), maxOutputTokens: 2048 },
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `שם התלמיד/ה: ${studentName}\n\nתשובות המורה/ת:\n${answersText}\n\n---\n\n${interventionBank}`,
+            },
+          ],
+        },
+      ],
+    })
+
+    console.log('[STREAM] Gemini API connected, starting iteration')
+
+    let chunkNum = 0
+    for await (const chunk of stream) {
+      const text = chunk.text
+      if (text) {
+        console.log(`[STREAM] Chunk ${++chunkNum}: ${text.length} chars`)
+        yield text
+      }
+    }
+    console.log('[STREAM] Iteration complete')
+  } catch (err) {
+    console.error('[STREAM] Error in Gemini API:', err)
+    throw err
   }
 }
 
