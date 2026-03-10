@@ -55,16 +55,18 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Prepare data for analysis
-    const answersText = session.answers
-      .map(
-        (a) => `
+    // Prepare data for analysis (handle both with and without answers)
+    const answersText = session.answers.length > 0
+      ? session.answers
+          .map(
+            (a) => `
 **שאלה ${a.questionIndex + 1}:** ${a.questionText}
 **תשובה:** ${a.teacherAnswer}
 ${a.followUpText ? `**המשך:** ${a.followUpText}` : ''}
-      `
-      )
-      .join('\n')
+          `
+          )
+          .join('\n')
+      : `בצע ניתוח עמוק על התלמיד ${session.studentName} בהתבסס על ניסיון פדגוגי עמוק.`
 
     const gemPrompt = `
 אתה מומחה בניתוח נתונים חינוכיים ובניית תוכניות התערבות מערכתיות.
