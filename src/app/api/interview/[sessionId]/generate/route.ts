@@ -66,117 +66,110 @@ export async function POST(
 
   console.log('[GENERATE] Step 4: Generating new profile', { studentName: session.studentName, answers: session.answers.length })
 
-  const encoder = new TextEncoder()
-  let fullText = ''
+  try {
+    // If no answers, generate analysis based on student name alone
+    const answers = session.answers.length > 0
+      ? session.answers.map((a) => ({
+          questionText: a.questionText,
+          teacherAnswer: a.teacherAnswer,
+          isFollowUp: a.isFollowUp,
+        }))
+      : [
+          {
+            questionText: 'תיאור כללי',
+            teacherAnswer: `בצע ניתוח עמוק על התלמיד ${session.studentName} בהתבסס על ניסיון פדגוגי עמוק. ספק תוכנית התערבות מפורטת.`,
+            isFollowUp: false,
+          }
+        ]
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        console.log('[GENERATE] Stream start: preparing data')
-        // If no answers, generate analysis based on student name alone
-        const answers = session.answers.length > 0
-          ? session.answers.map((a) => ({
-              questionText: a.questionText,
-              teacherAnswer: a.teacherAnswer,
-              isFollowUp: a.isFollowUp,
-            }))
-          : [
-              {
-                questionText: 'תיאור כללי',
-                teacherAnswer: `בצע ניתוח עמוק על התלמיד ${session.studentName} בהתבסס על ניסיון פדגוגי עמוק. ספק תוכנית התערבות מפורטת.`,
-                isFollowUp: false,
-              }
-            ]
+    console.log('[GENERATE] Collecting profile generation', { answersCount: answers.length })
 
-        console.log('[GENERATE] Calling streamProfileGeneration', { answersCount: answers.length })
+    let fullText = ''
+    for await (const chunk of streamProfileGeneration({
+      answers,
+      studentName: session.studentName,
+      track: session.track,
+    })) {
+      fullText += chunk
+    }
 
-        let chunkCount = 0
-        for await (const chunk of streamProfileGeneration({
-          answers,
-          studentName: session.studentName,
-          track: session.track,
-        })) {
-          console.log(`[GENERATE] Chunk ${++chunkCount}: ${chunk.length} chars`)
-          fullText += chunk
-          controller.enqueue(encoder.encode(chunk))
-        }
+    console.log('[GENERATE] Collection complete', { textLength: fullText.length })
 
-        console.log('[GENERATE] Stream complete, parsing sections')
+    // Parse and save sections with new detailed fields
+    const parseSection = (header: string, nextHeader?: string): string => {
+      const pattern = nextHeader
+        ? new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*?)(?=\\n---\\s*\\n##|##\\s*${nextHeader})`, 'i')
+        : new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*)$`, 'i')
+      const match = fullText.match(pattern)
+      return match?.[1]?.trim() || ''
+    }
 
-        // Parse and save sections with new detailed fields
-        const parseSection = (header: string, nextHeader?: string): string => {
-          const pattern = nextHeader
-            ? new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*?)(?=\\n---\\s*\\n##|##\\s*${nextHeader})`, 'i')
-            : new RegExp(`##\\s*${header}[^\\n]*\\n([\\s\\S]*)$`, 'i')
-          const match = fullText.match(pattern)
-          return match?.[1]?.trim() || ''
-        }
+    const headline = parseSection('💎', '📊') || parseSection('💎')
+    const strengths = parseSection('🔥', '🚧') || parseSection('🔥')
+    const barriers = parseSection('🚧', '🧠') || parseSection('🚧')
+    const deepReading = parseSection('🧠', '🏠') || parseSection('🧠')
+    const interventions = parseSection('🛠️', '⏰') || parseSection('🛠️')
+    const kpis = parseSection('⏰', '🎯') || parseSection('⏰')
+    const closingInsight = parseSection('🎯')
+    const trackingSignsSuccess = parseSection('✅')
+    const trackingSignsWarning = parseSection('⚠️')
 
-        const headline = parseSection('💎', '📊') || parseSection('💎')
-        const strengths = parseSection('🔥', '🚧') || parseSection('🔥')
-        const barriers = parseSection('🚧', '🧠') || parseSection('🚧')
-        const deepReading = parseSection('🧠', '🏠') || parseSection('🧠')
-        const interventions = parseSection('🛠️', '⏰') || parseSection('🛠️')
-        const kpis = parseSection('⏰', '🎯') || parseSection('⏰')
-        const closingInsight = parseSection('🎯')
-        const trackingSignsSuccess = parseSection('✅')
-        const trackingSignsWarning = parseSection('⚠️')
+    console.log('[GENERATE] Saving to database')
 
-        console.log('[GENERATE] Saving to database')
+    // Update existing profile or create new one
+    await prisma.studentProfile.upsert({
+      where: { sessionId },
+      create: {
+        sessionId,
+        studentName: session.studentName,
+        track: session.track,
+        status: 'COMPLETED',
+        // New fields
+        headline: headline || fullText.slice(0, 300),
+        strengths,
+        barriers,
+        deepReading,
+        interventions,
+        trackingSignsSuccess,
+        trackingSignsWarning,
+        closingInsight,
+        // Legacy fields for backward compatibility
+        bottomLine: headline || fullText.slice(0, 200),
+        pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
+        actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
+      },
+      update: {
+        status: 'COMPLETED',
+        // New fields
+        headline: headline || fullText.slice(0, 300),
+        strengths,
+        barriers,
+        deepReading,
+        interventions,
+        trackingSignsSuccess,
+        trackingSignsWarning,
+        closingInsight,
+        // Legacy fields for backward compatibility
+        bottomLine: headline || fullText.slice(0, 200),
+        pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
+        actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
+      },
+    })
+    console.log('[GENERATE] Profile saved')
 
-        // Update existing profile or create new one
-        await prisma.studentProfile.upsert({
-          where: { sessionId },
-          create: {
-            sessionId,
-            studentName: session.studentName,
-            track: session.track,
-            status: 'COMPLETED',
-            // New fields
-            headline: headline || fullText.slice(0, 300),
-            strengths,
-            barriers,
-            deepReading,
-            interventions,
-            trackingSignsSuccess,
-            trackingSignsWarning,
-            closingInsight,
-            // Legacy fields for backward compatibility
-            bottomLine: headline || fullText.slice(0, 200),
-            pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
-            actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
-          },
-          update: {
-            status: 'COMPLETED',
-            // New fields
-            headline: headline || fullText.slice(0, 300),
-            strengths,
-            barriers,
-            deepReading,
-            interventions,
-            trackingSignsSuccess,
-            trackingSignsWarning,
-            closingInsight,
-            // Legacy fields for backward compatibility
-            bottomLine: headline || fullText.slice(0, 200),
-            pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
-            actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
-          },
-        })
-        console.log('[GENERATE] Profile saved, stream done')
-      } catch (err) {
-        console.error('[GENERATE] Error in stream:', err)
-        controller.enqueue(encoder.encode('\n\n❌ שגיאה בעיבוד הפרופיל. אנא נסו שוב מאוחר יותר.'))
-      } finally {
-        controller.close()
-      }
-    },
-  })
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  })
+    const encoder = new TextEncoder()
+    return new Response(encoder.encode(fullText), {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    })
+  } catch (err) {
+    console.error('[GENERATE] Error:', err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : '')
+    const encoder = new TextEncoder()
+    return new Response(encoder.encode('\n\n❌ שגיאה בעיבוד הפרופיל: ' + (err instanceof Error ? err.message : String(err))), {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  }
 }
