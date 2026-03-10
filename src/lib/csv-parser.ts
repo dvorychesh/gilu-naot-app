@@ -85,7 +85,6 @@ export function parseCSV(csvText: string): ParseResult {
     // Find headers with flexible matching
     const studentNameIdx = headers.findIndex((h) => h.includes('שם התלמיד'))
     const gradeIdx = headers.findIndex((h) => h.includes('כיתה'))
-    const trackIdx = headers.findIndex((h) => h.includes('מסלול'))
 
     if (studentNameIdx === -1) {
       return {
@@ -93,8 +92,6 @@ export function parseCSV(csvText: string): ParseResult {
         errors: [{ row: 0, error: `Missing required column: "שם התלמיד". Found: ${headers.slice(0, 5).join(', ')}...` }],
       }
     }
-
-    const hasTrack = trackIdx !== -1
 
     // Find question column indices by keywords
     const questionKeywords = [
@@ -130,20 +127,8 @@ export function parseCSV(csvText: string): ParseResult {
       }
 
       const grade = gradeIdx !== -1 ? cells[gradeIdx]?.trim() : undefined
-      const trackRaw = hasTrack ? cells[trackIdx]?.toLowerCase().trim() : 'יסודי'
-
-      let track: 'ELEMENTARY' | 'HIGH_SCHOOL' = 'ELEMENTARY'
-
-      if (hasTrack && trackRaw) {
-        if (trackRaw === 'יסודי') {
-          track = 'ELEMENTARY'
-        } else if (trackRaw === 'על-יסודי' || trackRaw === 'על יסודי') {
-          track = 'HIGH_SCHOOL'
-        } else {
-          errors.push({ row: i + 1, error: `Invalid track: "${trackRaw}". Use "יסודי" or "על-יסודי"` })
-          continue
-        }
-      }
+      // Always use ELEMENTARY - track selection removed for simplicity
+      const track: 'ELEMENTARY' | 'HIGH_SCHOOL' = 'ELEMENTARY'
 
       // Extract answers if any question columns are present
       const answers: Record<number, string> = {}
