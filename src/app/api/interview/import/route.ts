@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUserId } from '@/lib/auth'
+import { getAuthUserId, DEV_MODE } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { parseCSV } from '@/lib/csv-parser'
 
 export async function POST(req: NextRequest) {
-  const clerkId = await getAuthUserId()
+  let clerkId = await getAuthUserId()
 
-  if (!clerkId) {
+  // In production, require authentication
+  if (!clerkId && !DEV_MODE) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // In development, use dev user as fallback
+  const finalClerkId = clerkId || 'dev-user-001'
 
   try {
     const formData = await req.formData()
@@ -34,14 +38,14 @@ export async function POST(req: NextRequest) {
     }
 
     let user = await prisma.user.findUnique({
-      where: { clerkId },
+      where: { clerkId: finalClerkId },
     })
 
-    // Auto-create dev user if it doesn't exist
+    // Auto-create user if it doesn't exist
     if (!user) {
       user = await prisma.user.create({
         data: {
-          clerkId,
+          clerkId: finalClerkId,
           email: 'dev@example.com',
           name: 'Developer',
         },
