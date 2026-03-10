@@ -9,6 +9,41 @@ export interface ParseResult {
   errors: Array<{ row: number; error: string }>
 }
 
+/**
+ * Parse CSV line handling quoted fields with commas
+ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const nextChar = line[i + 1]
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote
+        current += '"'
+        i++
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Field separator
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+
+  // Add last field
+  result.push(current.trim())
+  return result
+}
+
 export function parseCSV(csvText: string): ParseResult {
   const lines = csvText.trim().split('\n')
   if (lines.length < 2) {
@@ -16,17 +51,17 @@ export function parseCSV(csvText: string): ParseResult {
   }
 
   const headerLine = lines[0]
-  const headers = headerLine.split(',').map((h) => h.trim())
+  const headers = parseCSVLine(headerLine)
 
   // Find headers with flexible matching (ignore gender markers and extra whitespace)
-  const studentNameIdx = headers.findIndex((h) => h.startsWith('שם התלמיד'))
+  const studentNameIdx = headers.findIndex((h) => h.includes('שם התלמיד'))
   const gradeIdx = headers.findIndex((h) => h === 'כיתה')
   const trackIdx = headers.findIndex((h) => h === 'מסלול')
 
   if (studentNameIdx === -1) {
     return {
       valid: [],
-      errors: [{ row: 0, error: 'Missing required column: "שם התלמיד"' }],
+      errors: [{ row: 0, error: `Missing required column: "שם התלמיד". Found columns: ${headers.join(', ')}` }],
     }
   }
 
@@ -40,7 +75,7 @@ export function parseCSV(csvText: string): ParseResult {
     const line = lines[i].trim()
     if (!line) continue
 
-    const cells = line.split(',').map((c) => c.trim())
+    const cells = parseCSVLine(line)
 
     const studentName = cells[studentNameIdx]
     const grade = gradeIdx !== -1 ? cells[gradeIdx] : undefined
