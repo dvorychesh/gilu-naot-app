@@ -86,6 +86,16 @@ export async function POST(
 
     let fullText = ''
     let chunkCount = 0
+    let timedOut = false
+
+    // Wrap generator with timeout
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => {
+        timedOut = true
+        reject(new Error('Gemini API timeout after 30s'))
+      }, 30000)
+    )
+
     try {
       const generator = streamProfileGeneration({
         answers,
@@ -94,21 +104,25 @@ export async function POST(
       })
       console.log('[GENERATE] Generator created')
 
-      for await (const chunk of generator) {
-        console.log(`[GENERATE] Got chunk: ${chunk.length} chars`)
-        fullText += chunk
-        chunkCount++
-      }
+      // Race against timeout
+      const generatorPromise = (async () => {
+        for await (const chunk of generator) {
+          console.log(`[GENERATE] Got chunk: ${chunk.length} chars`)
+          fullText += chunk
+          chunkCount++
+        }
+      })()
+
+      await Promise.race([generatorPromise, timeoutPromise])
       console.log('[GENERATE] Loop finished, total chunks:', chunkCount)
     } catch (genErr) {
       console.error('[GENERATE] Error in generator loop:', genErr instanceof Error ? genErr.message : String(genErr))
-      if (genErr instanceof Error) {
+      if (!timedOut && genErr instanceof Error) {
         console.error('[GENERATE] Stack:', genErr.stack)
       }
-      throw genErr
     }
 
-    console.log('[GENERATE] Collection complete', { textLength: fullText.length, chunkCount })
+    console.log('[GENERATE] Collection complete', { textLength: fullText.length, chunkCount, timedOut })
 
     // Fallback: if no text collected, generate a basic response
     if (!fullText || fullText.trim().length === 0) {
