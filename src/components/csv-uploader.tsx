@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface ImportResult {
   success: boolean
   message: string
-  created: Array<{ id: string; studentName: string; status: string }>
+  created: Array<{ id: string; studentName: string; status: string; profileUrl: string }>
   errors: Array<{ row: number; error: string }>
 }
 
