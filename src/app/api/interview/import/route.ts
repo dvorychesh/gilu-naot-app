@@ -163,10 +163,19 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        const statusValue = hasAnswers ? 'imported-with-answers' : 'created'
+        console.log('[IMPORT] Student created:', {
+          id: session.id,
+          studentName: session.studentName,
+          hasAnswers,
+          status: statusValue,
+          answerCount: row.answers ? Object.keys(row.answers).length : 0
+        })
+
         created.push({
           id: session.id,
           studentName: session.studentName,
-          status: hasAnswers ? 'imported-with-answers' : 'created',
+          status: statusValue,
           profileUrl: `/interview/${session.id}/profile`,
         })
       } catch (err) {
