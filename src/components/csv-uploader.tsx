@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Upload, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +14,7 @@ interface ImportResult {
 }
 
 export function CSVUploader() {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -40,6 +42,13 @@ export function CSVUploader() {
       setResult(data)
       if (data && data.success) {
         setFile(null)
+        // Auto-navigate to first student's profile if imported with answers
+        if (data.created.length > 0 && data.created[0].status === 'imported-with-answers') {
+          // Delay navigation to allow UI to update
+          setTimeout(() => {
+            router.push(data.created[0].profileUrl || `/interview/${data.created[0].id}/profile`)
+          }, 1000)
+        }
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
