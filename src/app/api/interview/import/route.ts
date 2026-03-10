@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const statusValue = hasAnswers ? 'imported-with-answers' : 'created'
+        const statusValue = 'imported-with-answers' // Always navigate since analysis works without answers
         console.log('[IMPORT] Student created:', {
           id: session.id,
           studentName: session.studentName,
