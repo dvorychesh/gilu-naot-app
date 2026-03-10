@@ -145,8 +145,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to process CSV',
-        details: isDev ? errorMsg : 'An error occurred during import. Please check your file and try again.',
-        ...(isDev && { stack: errorStack }),
+        details: errorMsg, // Always show error for debugging
+        stack: isDev ? errorStack : undefined,
       },
       { status: 500 }
     )
