@@ -103,14 +103,14 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        // Create student profile
+        // Create student profile with ANALYZING status (analysis triggered below)
         console.log('[IMPORT] Creating student profile for session:', session.id)
         await prisma.studentProfile.create({
           data: {
             sessionId: session.id,
             studentName: session.studentName,
             track: session.track,
-            status: 'PENDING',
+            status: 'ANALYZING',
           },
         })
         console.log('[IMPORT] Student profile created')
