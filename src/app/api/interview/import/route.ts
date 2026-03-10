@@ -24,7 +24,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
+    if (!file.size) {
+      return NextResponse.json({ error: 'File is empty' }, { status: 400 })
+    }
+
     const csvText = await file.text()
+    if (!csvText?.trim()) {
+      return NextResponse.json({ error: 'File content is empty' }, { status: 400 })
+    }
+
     const { valid, errors } = parseCSV(csvText)
 
     if (valid.length === 0) {
@@ -45,13 +53,21 @@ export async function POST(req: NextRequest) {
 
     // Auto-create user if it doesn't exist
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          clerkId: finalClerkId,
-          email: 'dev@example.com',
-          name: 'Developer',
-        },
-      })
+      try {
+        user = await prisma.user.create({
+          data: {
+            clerkId: finalClerkId,
+            email: `${finalClerkId}@dev.local`,
+            name: 'Educator',
+          },
+        })
+      } catch (err) {
+        // If user already exists (race condition), fetch it again
+        user = await prisma.user.findUnique({
+          where: { clerkId: finalClerkId },
+        })
+        if (!user) throw err
+      }
     }
 
     const created = []
@@ -100,12 +116,20 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     const isDev = process.env.NODE_ENV === 'development'
-    if (isDev) console.error('CSV import error:', err)
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    const errorStack = err instanceof Error ? err.stack : ''
+
+    console.error('CSV import error:', {
+      message: errorMsg,
+      stack: errorStack,
+      devMode: isDev,
+    })
 
     return NextResponse.json(
       {
         error: 'Failed to process CSV',
-        details: err instanceof Error ? err.message : 'Unknown error',
+        details: isDev ? errorMsg : 'An error occurred during import. Please check your file and try again.',
+        ...(isDev && { stack: errorStack }),
       },
       { status: 500 }
     )
