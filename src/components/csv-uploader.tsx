@@ -74,14 +74,45 @@ export function CSVUploader() {
         <CardContent className="space-y-6">
           {/* Format help */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-2">פורמט ה-CSV:</h3>
-            <p className="text-sm text-blue-800 mb-3">העמודות הדרושות:</p>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <span className="font-mono">שם התלמיד</span> (חובה)</li>
-              <li>• <span className="font-mono">כיתה</span> (אופציונלי)</li>
-              <li>• <span className="font-mono">מסלול</span> (חובה: "יסודי" או "על-יסודי")</li>
-            </ul>
-            <Button variant="outline" size="sm" className="mt-3" onClick={downloadSample}>
+            <h3 className="font-semibold text-blue-900 mb-3">פורמט ה-CSV:</h3>
+
+            {/* Table example */}
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">שם התלמיד</th>
+                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">כיתה</th>
+                    <th className="border border-blue-300 bg-blue-100 px-3 py-2 text-right font-semibold text-blue-900">מסלול</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">דני כהן</td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">ד׳2</td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">יסודי</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">שרה דדון</td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">י׳א</td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">על-יסודי</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">אליהו לוי</td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800"></td>
+                    <td className="border border-blue-200 px-3 py-2 text-blue-800">יסודי</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-xs text-blue-700 mb-3">
+              • <span className="font-semibold">שם התלמיד</span> - חובה<br/>
+              • <span className="font-semibold">כיתה</span> - אופציונלי<br/>
+              • <span className="font-semibold">מסלול</span> - חובה: "יסודי" או "על-יסודי"
+            </p>
+
+            <Button variant="outline" size="sm" className="mt-2" onClick={downloadSample}>
               הורד דוגמה
             </Button>
           </div>
