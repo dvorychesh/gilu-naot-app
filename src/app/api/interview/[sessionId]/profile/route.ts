@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const clerkId = await getAuthUserId()
 
@@ -13,7 +13,7 @@ export async function GET(
   }
 
   try {
-    const sessionId = params.sessionId
+    const { sessionId } = await params
 
     // Get session and verify ownership
     const session = await prisma.interviewSession.findUnique({
@@ -40,9 +40,7 @@ export async function GET(
         data: {
           sessionId,
           studentName: session.studentName,
-          grade: session.grade,
           track: session.track,
-          status: 'PENDING',
         },
       })
     }
