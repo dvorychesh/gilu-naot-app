@@ -6,16 +6,23 @@ import { streamProfileGeneration } from '@/lib/claude'
 export const maxDuration = 60;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const clerkId = await getAuthUserId()
-  if (!clerkId) return new Response('Unauthorized', { status: 401 })
-
   const { sessionId } = await params
+  const clerkId = await getAuthUserId()
+  const isInternalCall = req.headers.get('X-Internal-Call') === 'true'
 
+  // Allow internal calls from import route or authenticated calls
+  if (!clerkId && !isInternalCall) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
+  // For internal calls, just find by sessionId; for auth calls, verify ownership
   const session = await prisma.interviewSession.findFirst({
-    where: { id: sessionId, user: { clerkId } },
+    where: clerkId
+      ? { id: sessionId, user: { clerkId } }
+      : { id: sessionId },
     include: {
       answers: { orderBy: { createdAt: 'asc' } },
       profile: true,
