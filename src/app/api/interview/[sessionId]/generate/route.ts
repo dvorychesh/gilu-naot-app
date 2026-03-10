@@ -110,6 +110,12 @@ export async function POST(
 
     console.log('[GENERATE] Collection complete', { textLength: fullText.length, chunkCount })
 
+    // Fallback: if no text collected, generate a basic response
+    if (!fullText || fullText.trim().length === 0) {
+      console.warn('[GENERATE] ⚠️ No text collected from Gemini, using fallback')
+      fullText = `## 💎 השורה התחתונה\nניתוח עבור ${session.studentName}\n\n## 🔥 מוטיבציה וחוזקות\nנתונים לא מספקים לניתוח מלא.\n\n## 🛠️ תוכנית התערבות\nנדרשות תשובות נוספות.`
+    }
+
     // Parse and save sections with new detailed fields
     const parseSection = (header: string, nextHeader?: string): string => {
       const pattern = nextHeader
