@@ -97,11 +97,30 @@ export async function POST(
         const trackingSignsSuccess = parseSection('✅')
         const trackingSignsWarning = parseSection('⚠️')
 
-        await prisma.studentProfile.create({
-          data: {
+        // Update existing profile or create new one
+        await prisma.studentProfile.upsert({
+          where: { sessionId },
+          create: {
             sessionId,
             studentName: session.studentName,
             track: session.track,
+            status: 'COMPLETED',
+            // New fields
+            headline: headline || fullText.slice(0, 300),
+            strengths,
+            barriers,
+            deepReading,
+            interventions,
+            trackingSignsSuccess,
+            trackingSignsWarning,
+            closingInsight,
+            // Legacy fields for backward compatibility
+            bottomLine: headline || fullText.slice(0, 200),
+            pedagogicalAnalysis: strengths + (barriers ? '\n\n' + barriers : ''),
+            actionPlan: interventions + (kpis ? '\n\n## ⏰ מדדי הצלחה\n' + kpis : ''),
+          },
+          update: {
+            status: 'COMPLETED',
             // New fields
             headline: headline || fullText.slice(0, 300),
             strengths,
