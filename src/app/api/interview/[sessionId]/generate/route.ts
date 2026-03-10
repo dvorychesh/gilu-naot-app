@@ -85,15 +85,30 @@ export async function POST(
     console.log('[GENERATE] Collecting profile generation', { answersCount: answers.length })
 
     let fullText = ''
-    for await (const chunk of streamProfileGeneration({
-      answers,
-      studentName: session.studentName,
-      track: session.track,
-    })) {
-      fullText += chunk
+    let chunkCount = 0
+    try {
+      const generator = streamProfileGeneration({
+        answers,
+        studentName: session.studentName,
+        track: session.track,
+      })
+      console.log('[GENERATE] Generator created')
+
+      for await (const chunk of generator) {
+        console.log(`[GENERATE] Got chunk: ${chunk.length} chars`)
+        fullText += chunk
+        chunkCount++
+      }
+      console.log('[GENERATE] Loop finished, total chunks:', chunkCount)
+    } catch (genErr) {
+      console.error('[GENERATE] Error in generator loop:', genErr instanceof Error ? genErr.message : String(genErr))
+      if (genErr instanceof Error) {
+        console.error('[GENERATE] Stack:', genErr.stack)
+      }
+      throw genErr
     }
 
-    console.log('[GENERATE] Collection complete', { textLength: fullText.length })
+    console.log('[GENERATE] Collection complete', { textLength: fullText.length, chunkCount })
 
     // Parse and save sections with new detailed fields
     const parseSection = (header: string, nextHeader?: string): string => {

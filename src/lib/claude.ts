@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { getInterventionBank, SchoolTrack } from './interventions'
 
 function getAI() { return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! }) }
-const MODEL: string = 'gemini-2.0-flash'
+const MODEL: string = 'gemini-2.5-flash'
 
 // ── INTERVIEWER BOT (Quality Check) ─────────────────────────────
 
