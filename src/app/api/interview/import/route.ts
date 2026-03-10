@@ -33,12 +33,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { clerkId },
     })
 
+    // Auto-create dev user if it doesn't exist
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      user = await prisma.user.create({
+        data: {
+          clerkId,
+          email: 'dev@example.com',
+          name: 'Developer',
+        },
+      })
     }
 
     const created = []
