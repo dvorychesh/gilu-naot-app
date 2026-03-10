@@ -40,14 +40,23 @@ export function CSVUploader() {
 
       const data = await res.json() as ImportResult
       setResult(data)
-      if (data && data.success) {
+      if (data && data.success && data.created.length > 0) {
         setFile(null)
+        const student = data.created[0]
+        const profileUrl = student.profileUrl || `/interview/${student.id}/profile`
+
+        // Debug logging
+        console.log('[NAVIGATION] Import successful:', {
+          status: student.status,
+          profileUrl,
+          hasAnswers: student.status === 'imported-with-answers'
+        })
+
         // Auto-navigate to first student's profile if imported with answers
-        if (data.created.length > 0 && data.created[0].status === 'imported-with-answers') {
-          // Delay navigation to allow UI to update
-          setTimeout(() => {
-            router.push(data.created[0].profileUrl || `/interview/${data.created[0].id}/profile`)
-          }, 1000)
+        if (student.status === 'imported-with-answers') {
+          console.log('[NAVIGATION] Triggering navigation to:', profileUrl)
+          // Immediate navigation
+          router.push(profileUrl)
         }
       }
     } catch (err) {
