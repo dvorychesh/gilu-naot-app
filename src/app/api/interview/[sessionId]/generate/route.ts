@@ -40,24 +40,45 @@ export async function POST(
 
   // If profile already exists, return it as a stream
   if (session.profile) {
-    console.log('[GENERATE] Step 3: Profile exists, returning cached')
+    console.log('[GENERATE] Step 3: Profile exists, returning cached', {
+      hasHeadline: !!session.profile.headline,
+      hasStrengths: !!session.profile.strengths,
+      hasInterventions: !!session.profile.interventions,
+    })
     const parts: string[] = []
-    if (session.profile.headline || session.profile.bottomLine) {
-      parts.push('## 💎 השורה התחתונה\n' + (session.profile.headline || session.profile.bottomLine))
+
+    // Build response from profile, always including something
+    const headline = session.profile.headline || session.profile.bottomLine || `ניתוח עבור ${session.profile.studentName}`
+    parts.push('## 💎 השורה התחתונה\n' + headline)
+
+    if (session.profile.strengths) {
+      parts.push('## 🔥 מוטיבציה וחוזקות\n' + session.profile.strengths)
     }
-    if (session.profile.strengths) parts.push('## 🔥 מוטיבציה וחוזקות\n' + session.profile.strengths)
-    if (session.profile.barriers) parts.push('## 🚧 האתגר המרכזי\n' + session.profile.barriers)
-    if (session.profile.deepReading) parts.push('## 🧠 סגנון למידה\n' + session.profile.deepReading)
-    if (session.profile.interventions) parts.push('## 🛠️ תוכנית התערבות\n' + session.profile.interventions)
-    if (session.profile.trackingSignsSuccess) parts.push('## ✅ סימני הצלחה\n' + session.profile.trackingSignsSuccess)
-    if (session.profile.trackingSignsWarning) parts.push('## ⚠️ נורות אזהרה\n' + session.profile.trackingSignsWarning)
-    if (session.profile.closingInsight) parts.push('## 🎯 משפט סיכום\n' + session.profile.closingInsight)
-    // Fallback to legacy fields if new fields are empty
-    if (!session.profile.interventions && session.profile.actionPlan) {
-      parts.push('## 🛠️ תוכנית התערבות\n' + session.profile.actionPlan)
+    if (session.profile.barriers) {
+      parts.push('## 🚧 האתגר המרכזי\n' + session.profile.barriers)
+    }
+    if (session.profile.deepReading) {
+      parts.push('## 🧠 סגנון למידה\n' + session.profile.deepReading)
     }
 
-    const profileText = parts.join('\n\n---\n\n')
+    const interventions = session.profile.interventions || session.profile.actionPlan
+    if (interventions) {
+      parts.push('## 🛠️ תוכנית התערבות\n' + interventions)
+    }
+
+    if (session.profile.trackingSignsSuccess) {
+      parts.push('## ✅ סימני הצלחה\n' + session.profile.trackingSignsSuccess)
+    }
+    if (session.profile.trackingSignsWarning) {
+      parts.push('## ⚠️ נורות אזהרה\n' + session.profile.trackingSignsWarning)
+    }
+    if (session.profile.closingInsight) {
+      parts.push('## 🎯 משפט סיכום\n' + session.profile.closingInsight)
+    }
+
+    const profileText = parts.length > 0 ? parts.join('\n\n---\n\n') : `## 💎 ניתוח עבור ${session.profile.studentName}`
+    console.log('[GENERATE] Returning cached profile, length:', profileText.length)
+
     const encoder = new TextEncoder()
     return new Response(encoder.encode(profileText), {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
