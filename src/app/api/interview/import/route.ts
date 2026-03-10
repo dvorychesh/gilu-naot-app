@@ -134,35 +134,35 @@ export async function POST(req: NextRequest) {
             })
           }
           console.log('[IMPORT] Interview answers created:', Object.keys(row.answers).length)
+        }
 
-          // Trigger AI analysis via generate endpoint
-          console.log('[IMPORT] Triggering analysis for session:', session.id)
-          try {
-            const baseUrl = process.env.VERCEL_URL
-              ? `https://${process.env.VERCEL_URL}`
-              : 'http://localhost:3000'
-            const generateUrl = `${baseUrl}/api/interview/${session.id}/generate`
-            console.log('[IMPORT] Calling generate endpoint:', generateUrl)
+        // Always trigger AI analysis via generate endpoint (works with or without answers)
+        console.log('[IMPORT] Triggering analysis for session:', session.id)
+        try {
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'http://localhost:3000'
+          const generateUrl = `${baseUrl}/api/interview/${session.id}/generate`
+          console.log('[IMPORT] Calling generate endpoint:', generateUrl)
 
-            const generateResponse = await fetch(generateUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Internal-Call': 'true',
-              },
-            })
+          const generateResponse = await fetch(generateUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Internal-Call': 'true',
+            },
+          })
 
-            if (!generateResponse.ok) {
-              const genError = await generateResponse.text()
-              console.warn('[IMPORT] Generate endpoint warning:', generateResponse.status, genError)
-              // Don't fail import if generate fails - it can be retried
-            } else {
-              console.log('[IMPORT] Analysis triggered successfully')
-            }
-          } catch (genErr) {
-            console.warn('[IMPORT] Failed to trigger analysis:', genErr instanceof Error ? genErr.message : String(genErr))
+          if (!generateResponse.ok) {
+            const genError = await generateResponse.text()
+            console.warn('[IMPORT] Generate endpoint warning:', generateResponse.status, genError)
             // Don't fail import if generate fails - it can be retried
+          } else {
+            console.log('[IMPORT] Analysis triggered successfully')
           }
+        } catch (genErr) {
+          console.warn('[IMPORT] Failed to trigger analysis:', genErr instanceof Error ? genErr.message : String(genErr))
+          // Don't fail import if generate fails - it can be retried
         }
 
         const statusValue = 'imported-with-answers' // Always navigate since analysis works without answers
