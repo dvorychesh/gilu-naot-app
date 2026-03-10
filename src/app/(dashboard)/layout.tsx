@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BookOpen, Users, Home, Clock, Upload } from 'lucide-react'
+import { BookOpen, Users, Home, Clock, Upload, FileText } from 'lucide-react'
 import { DEV_MODE } from '@/lib/auth'
 
 // UserButton is only rendered when Clerk is configured
@@ -46,6 +46,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             <Upload className="w-5 h-5" />
             <span>יבוא תלמידים</span>
+          </Link>
+          <Link
+            href="/profiles"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors text-purple-100 hover:text-white"
+          >
+            <FileText className="w-5 h-5" />
+            <span>כל הפרופילים</span>
           </Link>
           <Link
             href="/class-profile/new"
