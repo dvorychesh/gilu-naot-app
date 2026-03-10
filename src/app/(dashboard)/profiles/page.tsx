@@ -50,7 +50,7 @@ export default function ProfilesPage() {
   }
 
   // Get unique grades for filter
-  const grades = Array.from(new Set(profiles.map((p) => p.grade).filter(Boolean)))
+  const grades = Array.from(new Set(profiles.map((p) => p.grade).filter((g): g is string => Boolean(g))))
   const filteredProfiles = selectedGrade ? profiles.filter((p) => p.grade === selectedGrade) : profiles
 
   const statusConfig = {
